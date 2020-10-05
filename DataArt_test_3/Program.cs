@@ -13,6 +13,7 @@ namespace DataArt_test_3
     {
         #region Properties
         public static string PathFile { get; private set; }
+        public static string ExtensionFile { get; private set; } = "";
         public static string FileName { get; private set; } = "";
 
         public static string FullName { get; private set; } = "";
@@ -21,61 +22,97 @@ namespace DataArt_test_3
         public static string Maxlenght { get; private set; }
         public static string ArrayCurrency { get; private set; }
         public static HashSet<string> UniqueWord { get; private set; }
-        public static Graph g { get; private set; }
         public static List<String> SearchCurrencyWords { get; private set; }
+        public static List<String> ArrayCurencyNew { get; private set; }
         #endregion
 
         #region Methods
         [STAThread]
         static void Main(string[] args)
         {
-            g = new Graph();
+            ArrayCurencyNew = new List<string>();
+            SearchCurrencyWords = new List<string>();
             ReadFromTxt();
-            UniqueWord = SearchUnicWords(ArrayCurrency);
-            CreateVertex(g, UniqueWord);
-            CreateEdge(g, ArrayCurrency);
-            SearchCurrencyWords = SearchWords(SearchCurrency);
-            var dijkstra = new Dijkstra(g);
-            var path = dijkstra.FindShortestPath(SearchCurrencyWords[0], SearchCurrencyWords[1]);
-            Console.WriteLine(path);
-            SaveToFileTxt(path);
+            Dictionary<string, List<string>> graph = new Dictionary<string, List<string>>();
+            foreach (var pair in ArrayCurencyNew)
+            {
+                var splitted = pair.Split(' ');
+                if (!graph.ContainsKey(splitted[0]))
+                {
+                    graph[splitted[0]] = new List<string>();
+                }
+                graph[splitted[0]].Add(splitted[1]);
+            }
+
+            Queue<string> queo = new Queue<string>();
+            queo.Enqueue(SearchCurrencyWords[0]);
+            HashSet<string> visited = new HashSet<string>();
+            Dictionary<string, string> route = new Dictionary<string, string>();
+
+            bool found = false;
+            while (queo.Count != 0)
+            {
+                var item = queo.Dequeue();
+                visited.Add(item);
+                if (item == SearchCurrencyWords[1])
+                {
+                    found = true;
+                    break;
+                }
+                else
+                {
+                    if (graph.ContainsKey(item))
+                    {
+                        foreach (var child in graph[item])
+                        {
+                            if (!visited.Contains(child))
+                            {
+                                route[child] = item;
+                                queo.Enqueue(child);
+                            }
+                        }
+                    }
+                }
+            }
+
+            List<string> resultList = new List<string>();
+            string result = "";
+            if (found)
+            {
+                string key = SearchCurrencyWords[1];
+                while (route.ContainsKey(key))
+                {
+                    resultList.Add(key);
+                    key = route[key];
+                }
+                resultList.Add(SearchCurrencyWords[0]);
+            }
+            resultList.Reverse();
+            foreach (var item in resultList)
+            {
+                result += item + " ";
+            }
+            SaveToFileTxt(result);
+            Console.WriteLine("File Save!");
             Console.ReadLine();
-        }
-
-        static void CreateVertex(Graph graph, HashSet<string> unique)
-        {
-            foreach (string item in unique)
-            {
-                graph.AddVertex(item);
-            }
-        }
-
-        static void CreateEdge(Graph graph, string stringarray)
-        {
-            char[] delimiterChars = { ' ', ',', '.', ':', '\t' };
-            List<String> list = stringarray.Split(delimiterChars, StringSplitOptions.RemoveEmptyEntries).ToList();
-            for (int i = 0; i < list.Count-1; i++)
-            {
-                graph.AddEdge(list[i], list[i + 1], 1);
-            }
         }
 
         static void ReadFromTxt()
         {
             try
             {
-                while (FullName == "")
-                {
-
                 OpenFileDialog openFileDialog = new OpenFileDialog();
                 openFileDialog.Filter = "Text documents (.txt)|*.txt";
-                if (openFileDialog.ShowDialog() == true)
+                while (FullName == "")
                 {
-                    PathFile = Path.GetDirectoryName(openFileDialog.FileName);
-                    FileName = Path.GetFileNameWithoutExtension(openFileDialog.FileName);
-                    FullName = PathFile + "\\" + FileName;
+                    if (openFileDialog.ShowDialog() == true)
+                    {
+                        ExtensionFile = Path.GetExtension(openFileDialog.FileName);
+                        FullName = Path.GetDirectoryName(openFileDialog.FileName) + "\\"
+                                   + Path.GetFileNameWithoutExtension(openFileDialog.FileName);
+                        PathFile = Path.GetDirectoryName(openFileDialog.FileName);
 
-                }
+                    }
                 }
             }
             catch (Exception eReadFromTxt)
@@ -94,13 +131,15 @@ namespace DataArt_test_3
                         switch (count)
                         {
                             case 1:
-                                SearchCurrency = line;
+                                var splitted = line.Split(' ');
+                                SearchCurrencyWords.Add(splitted[0]);
+                                SearchCurrencyWords.Add(splitted[1]);
                                 break;
                             case 2:
                                 Maxlenght = line;
                                 break;
                             default:
-                                ArrayCurrency += line + " ";
+                                ArrayCurencyNew.Add(line);
                                 break;
                         }
                     }
@@ -115,7 +154,7 @@ namespace DataArt_test_3
         {
             try
             {
-                using (StreamWriter sw = new StreamWriter(PathFile+"\\" + "output" + ".txt", false, System.Text.Encoding.Default))
+                using (StreamWriter sw = new StreamWriter(PathFile + "\\" + "output" + ".txt", false, System.Text.Encoding.Default))
                 {
                     sw.WriteLine(path);
                 }
@@ -123,23 +162,9 @@ namespace DataArt_test_3
             catch (Exception eSaveInTxt)
             {
                 MessageBoxResult message = MessageBox.Show(eSaveInTxt.Message, "Error", MessageBoxButton.OK);
-               
+
             }
 
-        }
-        static HashSet<String> SearchUnicWords(string stringarray)
-        {
-            char[] delimiterChars = { ' ', ',', '.', ':', '\t' };
-            List<String> list = stringarray.Split(delimiterChars, StringSplitOptions.RemoveEmptyEntries).ToList();
-            HashSet<String> uniqueWords = new HashSet<string>(list);
-            return uniqueWords;
-        }
-
-        static List<String> SearchWords(string stringarray)
-        {
-            char[] delimiterChars = { ' ', ',', '.', ':', '\t' };
-            List<String> list = stringarray.Split(delimiterChars, StringSplitOptions.RemoveEmptyEntries).ToList();
-            return list;
         }
         #endregion
     }
